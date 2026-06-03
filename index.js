@@ -184,7 +184,9 @@ app.get("/", (req, res) => {
   res.send("Portfolio server is running...");
 });
 
+module.exports = app;
+
 // ---------------- start server ----------------
-app.listen(PORT, () => {
-  console.log(`Server running on port:${PORT}`);
-});
+// app.listen(PORT, () => {
+//   console.log(`Server running on port:${PORT}`);
+// });
