@@ -6,15 +6,18 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
 
-// middleware
-app.use(cors());
+app.use(cors({
+  origin: ["http://localhost:5173", "https://devjoynul26.vercel.app"],
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type"]
+}));
+
 app.use(express.json());
 
 // ---------------- MongoDB ----------------
 
-const uri = process.env.MONGODB_URI;
+const uri = `mongodb+srv://${process.env.MONGODB_NAME}:${process.env.MONGODB_PASS}@cluster0.svgbh.mongodb.net/?appName=Cluster0`;
 
 const client = new MongoClient(uri, {
   serverApi: {
@@ -24,169 +27,173 @@ const client = new MongoClient(uri, {
   }
 });
 
+let skillsCollection;
+let projectsCollection;
+let profileCollection;
+
+// ---------------- Helper: async handler ----------------
+const asyncHandler = (fn) => (req, res, next) => {
+  Promise.resolve(fn(req, res, next)).catch((err) => {
+    console.error(err);
+    res.status(500).send({ success: false, message: "Server Error" });
+  });
+};
+
+// ---------------- ADMIN LOGIN ----------------
+
+app.post("/admin/login", asyncHandler(async (req, res) => {
+  const { password } = req.body;
+
+  if (password === process.env.ADMIN_PASSWORD) {
+    return res.send({
+      success: true,
+      token: "admin-token",
+    });
+  }
+
+  res.status(401).send({
+    success: false,
+    message: "Invalid password",
+  });
+}));
+
+// ---------------- SKILLS ----------------
+
+app.get("/skills", asyncHandler(async (req, res) => {
+  const result = await skillsCollection.find().toArray();
+  res.send(result);
+}));
+
+app.post("/skills", asyncHandler(async (req, res) => {
+  const skill = req.body;
+
+  const result = await skillsCollection.insertOne(skill);
+
+  res.send({
+    success: true,
+    insertedId: result.insertedId,
+  });
+}));
+
+app.delete("/skills/:id", asyncHandler(async (req, res) => {
+  const id = req.params.id;
+
+  if (!ObjectId.isValid(id)) {
+    return res.status(400).send({ success: false, message: "Invalid ID" });
+  }
+
+  const result = await skillsCollection.deleteOne({
+    _id: new ObjectId(id),
+  });
+
+  res.send(result);
+}));
+
+// ---------------- PROJECTS ----------------
+
+app.get("/projects", asyncHandler(async (req, res) => {
+  const result = await projectsCollection.find().toArray();
+  res.send(result);
+}));
+
+app.post("/projects", asyncHandler(async (req, res) => {
+  const project = req.body;
+
+  const result = await projectsCollection.insertOne(project);
+
+  res.send({
+    success: true,
+    insertedId: result.insertedId,
+  });
+}));
+
+app.put("/projects/:id", asyncHandler(async (req, res) => {
+  const id = req.params.id;
+  const updatedData = req.body;
+
+  if (!ObjectId.isValid(id)) {
+    return res.status(400).send({ success: false, message: "Invalid ID" });
+  }
+
+  const result = await projectsCollection.updateOne(
+    { _id: new ObjectId(id) },
+    { $set: updatedData }
+  );
+
+  res.send(result);
+}));
+
+app.delete("/projects/:id", asyncHandler(async (req, res) => {
+  const id = req.params.id;
+
+  if (!ObjectId.isValid(id)) {
+    return res.status(400).send({ success: false, message: "Invalid ID" });
+  }
+
+  const result = await projectsCollection.deleteOne({
+    _id: new ObjectId(id),
+  });
+
+  res.send(result);
+}));
+
+// ---------------- PROFILE ----------------
+
+app.get("/profile", asyncHandler(async (req, res) => {
+  const result = await profileCollection.findOne({});
+
+  if (!result) {
+    return res.send({
+      title: "",
+      description1: "",
+      description2: "",
+      experience: "",
+      projects: "",
+    });
+  }
+
+  res.send(result);
+}));
+
+app.put("/profile", asyncHandler(async (req, res) => {
+  const profileData = req.body;
+
+  const result = await profileCollection.updateOne(
+    {},
+    { $set: profileData },
+    { upsert: true }
+  );
+
+  res.send(result);
+}));
+
+// ---------------- CONNECT DB ----------------
+
 async function run() {
   try {
     await client.connect();
+
     const db = client.db("portfolioDB");
 
-    const skillsCollection = db.collection("skills");
-    const projectsCollection = db.collection("projects");
-    const profileCollection = db.collection("profile");
-    const experiencesCollection = db.collection("experiences");
-
-    // ADMIN LOGIN
-    // =====================
-
-    app.post("/api/admin/login", async (req, res) => {
-      const { password } = req.body;
-
-      if (password === "devjoynul@2026") {
-        return res.send({
-          success: true,
-          token: "admin-token",
-        });
-      }
-
-      res.status(401).send({
-        success: false,
-        message: "Invalid password",
-      });
-    });
-
-    // =====================
-    // SKILLS
-    // =====================
-
-    app.get("/api/skills", async (req, res) => {
-      const result = await skillsCollection.find().toArray();
-      res.send(result);
-    });
-
-    app.post("/api/skills", async (req, res) => {
-      const skill = req.body;
-
-      const result = await skillsCollection.insertOne(skill);
-
-      res.send({
-        success: true,
-        insertedId: result.insertedId,
-      });
-    });
-
-    app.delete("/api/skills/:id", async (req, res) => {
-      const id = req.params.id;
-
-      const result = await skillsCollection.deleteOne({
-        _id: new ObjectId(id),
-      });
-
-      res.send(result);
-    });
-
-
-
-    // =====================
-    // PROJECTS
-    // =====================
-
-    app.get("/api/projects", async (req, res) => {
-      const result = await projectsCollection.find().toArray();
-      res.send(result);
-    });
-
-    app.post("/api/projects", async (req, res) => {
-      const project = req.body;
-
-      const result = await projectsCollection.insertOne(project);
-
-      res.send({
-        success: true,
-        insertedId: result.insertedId,
-      });
-    });
-
-    app.put("/api/projects/:id", async (req, res) => {
-      const id = req.params.id;
-      const updatedData = req.body;
-
-      const result = await projectsCollection.updateOne(
-        {
-          _id: new ObjectId(id),
-        },
-        {
-          $set: updatedData,
-        }
-      );
-
-      res.send(result);
-    });
-
-    app.delete("/api/projects/:id", async (req, res) => {
-      const id = req.params.id;
-
-      const result = await projectsCollection.deleteOne({
-        _id: new ObjectId(id),
-      });
-
-      res.send(result);
-    });
-
-    // =====================
-    // PROFILE / ABOUT
-    // =====================
-
-    app.get("/api/profile", async (req, res) => {
-      const result = await profileCollection.findOne({});
-
-      if (!result) {
-        return res.send({
-          title: "",
-          description1: "",
-          description2: "",
-          experience: "",
-          projects: "",
-        });
-      }
-
-      res.send(result);
-    });
-
-    app.put("/api/profile", async (req, res) => {
-      const profileData = req.body;
-
-      const result = await profileCollection.updateOne(
-        {},
-        {
-          $set: profileData,
-        },
-        {
-          upsert: true,
-        }
-      );
-
-      res.send(result);
-    });
-
-
+    skillsCollection = db.collection("skills");
+    projectsCollection = db.collection("projects");
+    profileCollection = db.collection("profile");
 
     await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
-  } finally {
 
-    // await client.close();
+    console.log("MongoDB connected successfully 🚀");
+  } catch (err) {
+    console.log("DB connection error:", err);
   }
 }
-run().catch(console.dir);
 
+run();
 
-// ---------------- basic route ----------------
+// ---------------- ROUTE ----------------
+
 app.get("/", (req, res) => {
   res.send("Portfolio server is running...");
 });
 
 module.exports = app;
 
-// ---------------- start server ----------------
-// app.listen(PORT, () => {
-//   console.log(`Server running on port:${PORT}`);
-// });
