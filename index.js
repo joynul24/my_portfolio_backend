@@ -15,7 +15,7 @@ app.use(cors({
 
 app.use(express.json());
 
-// ---------------- MongoDB ----------------
+/* ---------------- MongoDB ---------------- */
 
 const uri = `mongodb+srv://${process.env.MONGODB_NAME}:${process.env.MONGODB_PASS}@cluster0.svgbh.mongodb.net/?appName=Cluster0`;
 
@@ -27,19 +27,30 @@ const client = new MongoClient(uri, {
   }
 });
 
-let skillsCollection;
-let projectsCollection;
-let profileCollection;
+let db;
 
-// ---------------- Helper: async handler ----------------
+/* ---------------- DB CONNECTION (FIXED) ---------------- */
+
+async function getDB() {
+  if (!db) {
+    await client.connect();
+    db = client.db("portfolioDB");
+  }
+  return db;
+}
+
+/* ---------------- Async Handler ---------------- */
+
 const asyncHandler = (fn) => (req, res, next) => {
   Promise.resolve(fn(req, res, next)).catch((err) => {
-    console.error(err);
-    res.status(500).send({ success: false, message: "Server Error" });
+    res.status(500).send({
+      success: false,
+      message: err.message,
+    });
   });
 };
 
-// ---------------- ADMIN LOGIN ----------------
+/* ---------------- ADMIN LOGIN ---------------- */
 
 app.post("/admin/login", asyncHandler(async (req, res) => {
   const { password } = req.body;
@@ -57,17 +68,19 @@ app.post("/admin/login", asyncHandler(async (req, res) => {
   });
 }));
 
-// ---------------- SKILLS ----------------
+/* ---------------- SKILLS ---------------- */
 
 app.get("/skills", asyncHandler(async (req, res) => {
-  const result = await skillsCollection.find().toArray();
+  const db = await getDB();
+  const result = await db.collection("skills").find().toArray();
   res.send(result);
 }));
 
 app.post("/skills", asyncHandler(async (req, res) => {
+  const db = await getDB();
   const skill = req.body;
 
-  const result = await skillsCollection.insertOne(skill);
+  const result = await db.collection("skills").insertOne(skill);
 
   res.send({
     success: true,
@@ -76,30 +89,36 @@ app.post("/skills", asyncHandler(async (req, res) => {
 }));
 
 app.delete("/skills/:id", asyncHandler(async (req, res) => {
+  const db = await getDB();
   const id = req.params.id;
 
   if (!ObjectId.isValid(id)) {
-    return res.status(400).send({ success: false, message: "Invalid ID" });
+    return res.status(400).send({
+      success: false,
+      message: "Invalid ID",
+    });
   }
 
-  const result = await skillsCollection.deleteOne({
+  const result = await db.collection("skills").deleteOne({
     _id: new ObjectId(id),
   });
 
   res.send(result);
 }));
 
-// ---------------- PROJECTS ----------------
+/* ---------------- PROJECTS ---------------- */
 
 app.get("/projects", asyncHandler(async (req, res) => {
-  const result = await projectsCollection.find().toArray();
+  const db = await getDB();
+  const result = await db.collection("projects").find().toArray();
   res.send(result);
 }));
 
 app.post("/projects", asyncHandler(async (req, res) => {
+  const db = await getDB();
   const project = req.body;
 
-  const result = await projectsCollection.insertOne(project);
+  const result = await db.collection("projects").insertOne(project);
 
   res.send({
     success: true,
@@ -108,14 +127,18 @@ app.post("/projects", asyncHandler(async (req, res) => {
 }));
 
 app.put("/projects/:id", asyncHandler(async (req, res) => {
+  const db = await getDB();
   const id = req.params.id;
   const updatedData = req.body;
 
   if (!ObjectId.isValid(id)) {
-    return res.status(400).send({ success: false, message: "Invalid ID" });
+    return res.status(400).send({
+      success: false,
+      message: "Invalid ID",
+    });
   }
 
-  const result = await projectsCollection.updateOne(
+  const result = await db.collection("projects").updateOne(
     { _id: new ObjectId(id) },
     { $set: updatedData }
   );
@@ -124,23 +147,29 @@ app.put("/projects/:id", asyncHandler(async (req, res) => {
 }));
 
 app.delete("/projects/:id", asyncHandler(async (req, res) => {
+  const db = await getDB();
   const id = req.params.id;
 
   if (!ObjectId.isValid(id)) {
-    return res.status(400).send({ success: false, message: "Invalid ID" });
+    return res.status(400).send({
+      success: false,
+      message: "Invalid ID",
+    });
   }
 
-  const result = await projectsCollection.deleteOne({
+  const result = await db.collection("projects").deleteOne({
     _id: new ObjectId(id),
   });
 
   res.send(result);
 }));
 
-// ---------------- PROFILE ----------------
+/* ---------------- PROFILE ---------------- */
 
 app.get("/profile", asyncHandler(async (req, res) => {
-  const result = await profileCollection.findOne({});
+  const db = await getDB();
+
+  const result = await db.collection("profile").findOne({});
 
   if (!result) {
     return res.send({
@@ -156,9 +185,10 @@ app.get("/profile", asyncHandler(async (req, res) => {
 }));
 
 app.put("/profile", asyncHandler(async (req, res) => {
+  const db = await getDB();
   const profileData = req.body;
 
-  const result = await profileCollection.updateOne(
+  const result = await db.collection("profile").updateOne(
     {},
     { $set: profileData },
     { upsert: true }
@@ -167,33 +197,221 @@ app.put("/profile", asyncHandler(async (req, res) => {
   res.send(result);
 }));
 
-// ---------------- CONNECT DB ----------------
-
-async function run() {
-  try {
-    await client.connect();
-
-    const db = client.db("portfolioDB");
-
-    skillsCollection = db.collection("skills");
-    projectsCollection = db.collection("projects");
-    profileCollection = db.collection("profile");
-
-    await client.db("admin").command({ ping: 1 });
-
-    console.log("MongoDB connected successfully 🚀");
-  } catch (err) {
-    console.log("DB connection error:", err);
-  }
-}
-
-run();
-
-// ---------------- ROUTE ----------------
+/* ---------------- ROOT ROUTE ---------------- */
 
 app.get("/", (req, res) => {
   res.send("Portfolio server is running...");
 });
 
 module.exports = app;
+
+
+
+
+
+
+
+
+
+// const express = require("express");
+// const cors = require("cors");
+// const dotenv = require("dotenv");
+// const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+
+// dotenv.config();
+
+// const app = express();
+
+// app.use(cors({
+//   origin: ["http://localhost:5173", "https://devjoynul26.vercel.app"],
+//   methods: ["GET", "POST", "PUT", "DELETE"],
+//   allowedHeaders: ["Content-Type"]
+// }));
+
+// app.use(express.json());
+
+// // ---------------- MongoDB ----------------
+
+// const uri = `mongodb+srv://${process.env.MONGODB_NAME}:${process.env.MONGODB_PASS}@cluster0.svgbh.mongodb.net/?appName=Cluster0`;
+
+// const client = new MongoClient(uri, {
+//   serverApi: {
+//     version: ServerApiVersion.v1,
+//     strict: true,
+//     deprecationErrors: true,
+//   }
+// });
+
+// let skillsCollection;
+// let projectsCollection;
+// let profileCollection;
+
+// // ---------------- Helper: async handler ----------------
+// const asyncHandler = (fn) => (req, res, next) => {
+//   Promise.resolve(fn(req, res, next)).catch((err) => {
+//     console.error(err);
+//      res.status(500).send({
+//       success: false,
+//       message: err.message,
+//     });
+//   });
+// };
+
+// // ---------------- ADMIN LOGIN ----------------
+
+// app.post("/admin/login", asyncHandler(async (req, res) => {
+//   const { password } = req.body;
+
+//   if (password === process.env.ADMIN_PASSWORD) {
+//     return res.send({
+//       success: true,
+//       token: "admin-token",
+//     });
+//   }
+
+//   res.status(401).send({
+//     success: false,
+//     message: "Invalid password",
+//   });
+// }));
+
+// // ---------------- SKILLS ----------------
+
+// app.get("/skills", asyncHandler(async (req, res) => {
+//   const result = await skillsCollection.find().toArray();
+//   res.send(result);
+// }));
+
+// app.post("/skills", asyncHandler(async (req, res) => {
+//   const skill = req.body;
+
+//   const result = await skillsCollection.insertOne(skill);
+
+//   res.send({
+//     success: true,
+//     insertedId: result.insertedId,
+//   });
+// }));
+
+// app.delete("/skills/:id", asyncHandler(async (req, res) => {
+//   const id = req.params.id;
+
+//   if (!ObjectId.isValid(id)) {
+//     return res.status(400).send({ success: false, message: "Invalid ID" });
+//   }
+
+//   const result = await skillsCollection.deleteOne({
+//     _id: new ObjectId(id),
+//   });
+
+//   res.send(result);
+// }));
+
+// // ---------------- PROJECTS ----------------
+
+// app.get("/projects", asyncHandler(async (req, res) => {
+//   const result = await projectsCollection.find().toArray();
+//   res.send(result);
+// }));
+
+// app.post("/projects", asyncHandler(async (req, res) => {
+//   const project = req.body;
+
+//   const result = await projectsCollection.insertOne(project);
+
+//   res.send({
+//     success: true,
+//     insertedId: result.insertedId,
+//   });
+// }));
+
+// app.put("/projects/:id", asyncHandler(async (req, res) => {
+//   const id = req.params.id;
+//   const updatedData = req.body;
+
+//   if (!ObjectId.isValid(id)) {
+//     return res.status(400).send({ success: false, message: "Invalid ID" });
+//   }
+
+//   const result = await projectsCollection.updateOne(
+//     { _id: new ObjectId(id) },
+//     { $set: updatedData }
+//   );
+
+//   res.send(result);
+// }));
+
+// app.delete("/projects/:id", asyncHandler(async (req, res) => {
+//   const id = req.params.id;
+
+//   if (!ObjectId.isValid(id)) {
+//     return res.status(400).send({ success: false, message: "Invalid ID" });
+//   }
+
+//   const result = await projectsCollection.deleteOne({
+//     _id: new ObjectId(id),
+//   });
+
+//   res.send(result);
+// }));
+
+// // ---------------- PROFILE ----------------
+
+// app.get("/profile", asyncHandler(async (req, res) => {
+//   const result = await profileCollection.findOne({});
+
+//   if (!result) {
+//     return res.send({
+//       title: "",
+//       description1: "",
+//       description2: "",
+//       experience: "",
+//       projects: "",
+//     });
+//   }
+
+//   res.send(result);
+// }));
+
+// app.put("/profile", asyncHandler(async (req, res) => {
+//   const profileData = req.body;
+
+//   const result = await profileCollection.updateOne(
+//     {},
+//     { $set: profileData },
+//     { upsert: true }
+//   );
+
+//   res.send(result);
+// }));
+
+// // ---------------- CONNECT DB ----------------
+
+// async function run() {
+//   try {
+//     await client.connect();
+
+//     const db = client.db("portfolioDB");
+
+//     skillsCollection = db.collection("skills");
+//     projectsCollection = db.collection("projects");
+//     profileCollection = db.collection("profile");
+
+//     await client.db("admin").command({ ping: 1 });
+
+//     console.log("MongoDB connected successfully 🚀");
+//   } catch (err) {
+//     console.log("DB connection error:", err);
+//   }
+// }
+
+// run();
+
+// // ---------------- ROUTE ----------------
+
+// app.get("/", (req, res) => {
+//   res.send("Portfolio server is running...");
+// });
+
+// module.exports = app;
 
