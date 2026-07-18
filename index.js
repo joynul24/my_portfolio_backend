@@ -108,6 +108,12 @@ app.delete("/skills/:id", asyncHandler(async (req, res) => {
 
 /* ---------------- PROJECTS ---------------- */
 
+// app.get("/projects", asyncHandler(async (req, res) => {
+//   const db = await getDB();
+//   const result = await db.collection("projects").find().toArray();
+//   res.send(result);
+// }));
+
 app.get("/projects", asyncHandler(async (req, res) => {
   const db = await getDB();
   const result = await db.collection("projects").find().toArray();
