@@ -164,6 +164,26 @@ app.delete("/projects/:id", asyncHandler(async (req, res) => {
   res.send(result);
 }));
 
+// PUT: /api/projects/reorder
+router.put('/projects/reorder', async (req, res) => {
+  try {
+    const { sortedProjects } = req.body;
+
+    // Use bulkWrite to update multiple documents in a single DB request
+    const bulkOperations = sortedProjects.map((project, index) => ({
+      updateOne: {
+        filter: { _id: project._id },
+        update: { $set: { order: index } } // Assign new array index as the project order
+      }
+    }));
+
+    await Project.bulkWrite(bulkOperations);
+    res.status(200).json({ success: true, message: "Order updated successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 /* ---------------- PROFILE ---------------- */
 
 app.get("/profile", asyncHandler(async (req, res) => {
