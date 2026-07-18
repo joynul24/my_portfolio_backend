@@ -108,67 +108,25 @@ app.delete("/skills/:id", asyncHandler(async (req, res) => {
 
 /* ---------------- PROJECTS ---------------- */
 
+// ১. প্রজেক্ট গেট করা (সর্ট করা আছে)
 app.get("/projects", asyncHandler(async (req, res) => {
   const db = await getDB();
-  // সর্ট অ্যাড করা হয়েছে যাতে রিঅর্ডার করার পর সিরিয়াল অনুযায়ী প্রজেক্ট ফ্রন্টএন্ডে আসে
   const result = await db.collection("projects").find().sort({ order: 1 }).toArray();
   res.send(result);
 }));
 
+// ২. নতুন প্রজেক্ট তৈরি করা
 app.post("/projects", asyncHandler(async (req, res) => {
   const db = await getDB();
   const project = req.body;
-
   const result = await db.collection("projects").insertOne(project);
-
   res.send({
     success: true,
     insertedId: result.insertedId,
   });
 }));
 
-app.put("/projects/:id", asyncHandler(async (req, res) => {
-  const db = await getDB();
-  const id = req.params.id;
-  const updatedData = req.body;
-
-  if (!ObjectId.isValid(id)) {
-    return res.status(400).send({
-      success: false,
-      message: "Invalid ID",
-    });
-  }
-
-  // বডি থেকে _id প্রপার্টি ডিলিট করা নিরাপদ, নাহলে মঙ্গোডিবি এরর দিতে পারে
-  delete updatedData._id;
-
-  const result = await db.collection("projects").updateOne(
-    { _id: new ObjectId(id) },
-    { $set: updatedData }
-  );
-
-  res.send(result);
-}));
-
-app.delete("/projects/:id", asyncHandler(async (req, res) => {
-  const db = await getDB();
-  const id = req.params.id;
-
-  if (!ObjectId.isValid(id)) {
-    return res.status(400).send({
-      success: false,
-      message: "Invalid ID",
-    });
-  }
-
-  const result = await db.collection("projects").deleteOne({
-    _id: new ObjectId(id),
-  });
-
-  res.send(result);
-}));
-
-// PUT: /projects/reorder (FIXED: router ও Project এরর ঠিক করা হয়েছে)
+// 🌟 ৩. রিঅর্ডার রাউট (আইডি ওয়ালা রাউটের উপরে থাকতে হবে)
 app.put('/projects/reorder', asyncHandler(async (req, res) => {
   const db = await getDB();
   const { sortedProjects } = req.body;
@@ -186,6 +144,48 @@ app.put('/projects/reorder', asyncHandler(async (req, res) => {
 
   const result = await db.collection("projects").bulkWrite(bulkOperations);
   res.status(200).json({ success: true, message: "Order updated successfully", result });
+}));
+
+// 🌟 ৪. নির্দিষ্ট প্রজেক্ট আপডেট (আইডি ওয়ালা ডাইনামিক রাউট নিচে থাকবে)
+app.put("/projects/:id", asyncHandler(async (req, res) => {
+  const db = await getDB();
+  const id = req.params.id;
+  const updatedData = req.body;
+
+  if (!ObjectId.isValid(id)) {
+    return res.status(400).send({
+      success: false,
+      message: "Invalid ID",
+    });
+  }
+
+  delete updatedData._id;
+
+  const result = await db.collection("projects").updateOne(
+    { _id: new ObjectId(id) },
+    { $set: updatedData }
+  );
+
+  res.send(result);
+}));
+
+// ৫. প্রজেক্ট ডিলিট করা
+app.delete("/projects/:id", asyncHandler(async (req, res) => {
+  const db = await getDB();
+  const id = req.params.id;
+
+  if (!ObjectId.isValid(id)) {
+    return res.status(400).send({
+      success: false,
+      message: "Invalid ID",
+    });
+  }
+
+  const result = await db.collection("projects").deleteOne({
+    _id: new ObjectId(id),
+  });
+
+  res.send(result);
 }));
 
 /* ---------------- PROFILE ---------------- */
